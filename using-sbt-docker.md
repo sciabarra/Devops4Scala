@@ -1,6 +1,7 @@
 title: Devops4Scala: advanced Docker builds with SBT and sbt-docker
 date: 2016/09/19 20:00:00
 tags: ['Devops', 'Docker']
+
 ---
 
 
