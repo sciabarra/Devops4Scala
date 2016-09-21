@@ -1,9 +1,8 @@
-title: Devops4Scala: Using scala SBT for advanced Docker builds
-date: 2016-09-21 10:00:00
-tags:
-- Docker
-- Devops
+title: Devops4Scala: advanced Docker builds with SBT and sbt-docker
+date: 2016/09/19 20:00:00
+tags: ['Devops', 'Docker']
 ---
+
 
 I am a Scala developers, and I develop applications I deploy in the cloud. The tool of choice for packaging cloud applications is Docker. As a result  I spent a lot of time building and packaging  writing `Dockerfile`s.
 
