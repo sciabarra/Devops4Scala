@@ -4,7 +4,12 @@ organization := "devops4scala"
 
 version := "0.1"
 
+
 imageNames in docker := Seq(ImageName(s"${organization.value}/${name.value}:${version.value}"))
+
+scalaVersion := "2.11.6"
+
+scalatex.SbtPlugin.projectSettings
 
 lazy val docs = scalatex.ScalatexReadme(
   projectId = "docs",
