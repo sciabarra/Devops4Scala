@@ -15,6 +15,4 @@ dockerfile in docker := new Dockerfile {
     copy((paradox in Compile).value, dest)
 }
 
-// libraryDependencies in paradox += "ch.qos.logback" % "logback-classic" % "1.1.7"
-
 paradoxTheme := Some(builtinParadoxTheme("generic"))
