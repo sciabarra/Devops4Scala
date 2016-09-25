@@ -10,7 +10,7 @@ lazy val docs = scalatex.ScalatexReadme(
   projectId = "docs",
   wd = file(""),
   url = "https://github.com/sciabarra/Devops4Scala/tree/master",
-  source = "index"
+  source="Main"
 )
 
 lazy val nginx = project.in(file("..")/"nginx").enablePlugins(DockerPlugin)
