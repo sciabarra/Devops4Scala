@@ -226,6 +226,11 @@ Hence, `(docker in nginx).value.toString` will force the rebuild of the base ima
 
 The key concept is the reference to the other artifact build commands and then evaluating them will ensure we actually model a dependency system, not just a script that will execute actions in a given order. Note that docker builds are incremental and cached, so if the image is already built, it won't be rebuilt again and the whole build process will be very fast.
 
+# Demo time!
+
+<script type="text/javascript" src="https://asciinema.org/a/87076.js" id="asciicast-87076" async></script>
+
+
 # But wait! There is (much) more...
 
 Ok for now I stop here but I have not finished. We have still to see how to configure with shared property files, how to download files intelligently, how to use images to build artifacts , how to use Ammonite Scala scripts in builds...
