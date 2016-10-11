@@ -2,9 +2,10 @@ prpLookup += baseDirectory.value.getParentFile -> "alpine"
 
 imageNames in docker := Seq(ImageName(prp.value("alpine.jdk2")))
 
+val oraCookie = " Cookie: oraclelicense=accept-securebackup-cookie"
+
 dockerfile in docker := {
   val base = baseDirectory.value
-  val oraCookie = "Cookie: oraclelicense=accept-securebackup-cookie"
   new Dockerfile {
     Def.sequential(
       download.toTask(s" @glibc.url glibc.apk"),

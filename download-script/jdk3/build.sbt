@@ -4,6 +4,7 @@ imageNames in docker := Seq(ImageName(prp.value("alpine.jdk3")))
 
 val oraCookie = "Cookie: oraclelicense=accept-securebackup-cookie"
 
+
 dockerfile in docker := {
   val base = baseDirectory.value
   new Dockerfile {
