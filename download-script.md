@@ -148,52 +148,41 @@ Furthermore, it is possible to set the system property `profile`, and it will be
 
 # Removing extra files in JDK
 
-So far so good, we can build the image. However, if you check the size of the JDK image you will see it is 377 MB! Pretty big!
+So far so good, we  built the image. However, if you check the size of the JDK image you will see it is 377 MB! It is smaller than the official Java image, more than 600 megabyte but it is still pretty large.
 
-Actually in the JDK are included a lot of file not necessary for the execution of applications. In JDK are included source code of the library, the tuning tools visual vm and mission control, java db and many other stuff.
+Actually in the JDK are included a lot of file not necessary for the execution of applications. For example we can remove the source code of the Java library, some  tuning tools like Visual VM and Mission Control, the Java DB and other stuff.
 
-Unfortnately the usual solution of just removing those files at the end of the install does not work! The image won't be any smaller. What is needed is the ability to trim the JDK before actually placing it in the image. Thankfully, we are in the context of building images with a build tool so it is just matter of another build step.
+Unfortunately, just removing those files in the Docker build does not make the image smaller. What we need is the ability to trim the JDK **before** actually placing it in the image. Thankfully, we are in the context of building images with a build tool, so it is just matter of another build step.
 
-We can perform this activity in many different ways, invoking a script. We could use a shell script for example, but at the cost of introducing a dependency on the system to be used to build our docker images. This is a problem because I want the kit to be usable on multiple systems, to build images for development as well as for production. We need to support all the development enviroments for bulding our images.
+## A portable scripting solution: Ammonite
 
-For those reasons I included a portable scripting shell based on Scala, [Ammonite](https://github.com/lihaoyi/Ammonite). The `sbt-mosaico` plugin includes support for executing Ammonite scripts. You need to enable it, so in your project definition you have to use something like this:
+We can perform build activities in many different ways, invoking a script. The most obvious solution is to write a Bash shell script. However the cost is introducing a dependency on the system to be used to build our Docker images. Shell script cannot be run on *all* windows systems out of the box.
+
+Dependency on shell is a problem because I want the kit to be usable on multiple systems, to build images for development as well as for production. We need to support all the development environments for building our images. The kit should be usable for example by developers running Windows, web designer using a Mac and production servers running on Linux. Last but not least, since we are writing Scala SBT build scripts for our Dockerfiles, I would like to write Scala scripts also for supporting code.
+
+For those reasons I included in the plugin support for a portable scripting shell based on Scala, [Ammonite](https://github.com/lihaoyi/Ammonite). The `sbt-mosaico` plugin includes support for executing Ammonite scripts. You need to enable it, so in your project definition you have to use something like this:
 
 ```
 enablePlugins(MosaicoDockerPlugin,MosaicoAmmonitePlugin)
 ```
 
-Then you will have a task `amm` that can execute Scala scripts. Here is the final build file:
+Once done you get a new interactive task `amm` that can execute Scala scripts. If you have such a script (we show later how it is written) in current directory named `trimjdk.sc`, you can run `amm trimjdk` from the command line to execute it, and use `amm.toTask(s" trimjdk")` to execute it from a script. Thus the code that download and trim the JDK looks like this:
 
 ```
-prpLookup += baseDirectory.value.getParentFile -> "alpine"
-
-imageNames in docker := Seq(ImageName(prp.value("alpine.jdk3")))
-
-val oraCookie = "Cookie: oraclelicense=accept-securebackup-cookie"
-
-dockerfile in docker := {
-  val base = baseDirectory.value
-  new Dockerfile {
-    Def.sequential(
-      download.toTask(s" @glibc.url glibc.apk"),
-      download.toTask(s" @jdk.url jdk.tgz $oraCookie"),
-      amm.toTask(s" trimjdk")
-    ).value
-    from("alpine:edge")
-    copy(base/"glibc.apk", "/tmp")
-    runRaw("apk add --allow-untrusted /tmp/*.apk  && rm /tmp/*.apk")
-    add(base/"usr", "/usr")
-    runRaw("ln -sf /usr/jdk* /usr/java ; chmod +x /usr/java/bin/*")
-    env("JAVA_HOME", "/usr/java")
-    env("PATH", "/bin:/sbin:/usr/bin:/usr/sbin:/usr/java/bin")
-  }
-}
+Def.sequential(
+  download.toTask(s" @glibc.url glibc.apk"),
+  download.toTask(s" @jdk.url jdk.tgz $oraCookie"),
+  amm.toTask(s" trimjdk")
+).value
 ```
 
-You can note that after downloading the `jdk` I invoke a `trimjdk` script with `amm.toTask(s" trimjdk")`.
+Here the sequential is necessary because the trim task must be executed **after** the download has been completed. Without it, SBT would try to execute the `amm` task before the `download` is complete. You can check the final build file [here](https://github.com/sciabarra/Devops4Scala/blob/master/download-script/jdk3/build.sbt).
 
-The script is mostly written in Scala, and you need no other dependency on the system. The scripts actually were tested both on Windows 10 and Mac OSX and they run just fine on both systems. Let's give a look at the script:
+## An Ammonite script
 
+Let's examine the Ammonite script (you can find it [here](https://github.com/sciabarra/Devops4Scala/blob/master/download-script/jdk3/trimjdk.sc)).
+
+The script is mostly written in Scala, and you do not need any other dependency on the system. Required tools, like an unpacking utility, will be downloaded on demand, as the rest in the SBT.  The scripts actually were tested  on Windows 10 and Mac OSX and they run just fine on both systems. Let's give a look at the script:
 
 ```
 import $ivy.`org.rauschig:jarchivelib:0.7.0`
@@ -201,20 +190,21 @@ import org.rauschig.jarchivelib._
 import java.io._
 ```
 
-The strange `$ivy` imoport is the Ammonite syntax for declaring a dependency on a library available on maven central able to expand a `tar.gz`.
+I am unsing a library named `jarchivelib` (available on Maven Central) for extracting the `.tar.gz`. The strange `$ivy` imoport is the Ammonite syntax for declaring a dependency on a library. Once done the rest is plain scala.
+
 
 ```
 val exclude = "jdk1.8.0_\\d+/(src\\.zip|javafx-src\\.zip.*|db/.*|man/.*|include/.*|lib/(missioncontrol|visualvm)/.*|jre/lib/desktop/.*)".r
+```
+
+This is a regular expression to list files to exclude.
+
+
+```
 val infile = new File("jdk.tgz")
 val base = pwd.toIO
 val outdir = (pwd/"usr").toIO
 outdir.mkdirs
-```
-
-Here we declare a regular expression to select files we do not want to extract, then source and target file.
-The rest is just plain extraction code.
-
-```
 val arc = ArchiverFactory.createArchiver(ArchiveFormat.TAR, CompressionType.GZIP);
 val str = arc.stream(infile)
 var ent = str.getNextEntry
@@ -228,9 +218,10 @@ while (ent != null) {
   ent = str.getNextEntry
 }
 ```
+This code just extract the files excluding  those I am not interested in.
 
-If we build the image using this script we will end up with an image only 248 mb. Success!
+Now, we can build the image. The build, after downloading the files will also extract only the files we are interested and then will place them inside the image. If we build the image using this script we will end up with an image only 248 mb. Success!
 
 # Conclusions
 
-We have seen now how to improve our Docker4Scala build kit, learning how to automate downloading, configuring and scripting our applications.
+Now our SBT build kit is now more powerful, since we can also download, configure and script our builds. We have not finished yet, there is more. There are still even more complicated tasks to execute , like compiling binary code (not supported by SBT). Stay tuned for more installments.
